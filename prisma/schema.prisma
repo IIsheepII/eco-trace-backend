@@ -1,0 +1,312 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DocumentStatus {
+  UPLOADED
+  OCR_PENDING
+  OCR_COMPLETED
+  EXTRACTION_PENDING
+  EXTRACTION_COMPLETED
+  VALIDATION_PENDING
+  VALIDATED
+  REJECTED
+}
+
+enum ProcessingJobType {
+  OCR
+  AI_EXTRACTION
+  RULE_EXTRACTION
+  REPORT
+}
+
+enum ProcessingJobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum ValidationStatus {
+  PENDING
+  APPROVED
+  CORRECTED
+  REJECTED
+}
+
+enum ReportFormat {
+  PDF
+  XLSX
+}
+
+model Organisation {
+  id         String    @id @default(uuid())
+  name       String
+  taxId      String?   @unique
+  users      User[]
+  roles      Role[]
+  documents  Document[]
+  reports    Report[]
+  settings   Setting[]
+  auditLogs  AuditLog[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+}
+
+model Role {
+  id             String        @id @default(uuid())
+  name           String
+  permissions    String[]      @default([])
+  organisationId String?
+  organisation   Organisation? @relation(fields: [organisationId], references: [id])
+  users          User[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([name, organisationId])
+}
+
+model User {
+  id             String        @id @default(uuid())
+  email          String        @unique
+  fullName       String
+  passwordHash   String
+  isActive       Boolean       @default(true)
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id])
+  roleId         String
+  role           Role          @relation(fields: [roleId], references: [id])
+  refreshTokens  RefreshToken[]
+  uploadedFiles  UploadedFile[]
+  validations    ValidationRecord[]
+  reports        Report[]
+  auditLogs      AuditLog[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+
+  @@index([organisationId])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String
+  familyId  String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  replacedByTokenId String?
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+model DocumentType {
+  id             String                    @id @default(uuid())
+  name           String
+  code           String
+  description    String?
+  isActive       Boolean                   @default(true)
+  fieldDefinitions DocumentFieldDefinition[]
+  documents      Document[]
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  @@unique([code])
+}
+
+model DocumentFieldDefinition {
+  id             String       @id @default(uuid())
+  documentTypeId String
+  documentType   DocumentType @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
+  name           String
+  label          String
+  dataType       String
+  required       Boolean      @default(false)
+  validationRegex String?
+  extractionHint String?
+  order          Int          @default(0)
+  extractedFields ExtractedField[]
+  validatedFields ValidatedField[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([documentTypeId, name])
+}
+
+model Document {
+  id             String             @id @default(uuid())
+  organisationId String
+  organisation   Organisation       @relation(fields: [organisationId], references: [id])
+  documentTypeId String
+  documentType   DocumentType       @relation(fields: [documentTypeId], references: [id])
+  title          String
+  status         DocumentStatus     @default(UPLOADED)
+  metadata       Json               @default("{}")
+  uploadedFile   UploadedFile?
+  processingJobs ProcessingJob[]
+  extractedFields ExtractedField[]
+  validatedFields ValidatedField[]
+  validationRecords ValidationRecord[]
+  reports        Report[]
+  auditLogs      AuditLog[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  deletedAt      DateTime?
+
+  @@index([organisationId, status])
+  @@index([documentTypeId])
+}
+
+model UploadedFile {
+  id             String       @id @default(uuid())
+  organisationId String
+  documentId     String       @unique
+  document       Document     @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  uploadedById   String
+  uploadedBy     User         @relation(fields: [uploadedById], references: [id])
+  originalName   String
+  storageKey     String       @unique
+  mimeType       String
+  sizeBytes      Int
+  checksum       String
+  createdAt      DateTime     @default(now())
+
+  @@index([organisationId])
+}
+
+model ProcessingJob {
+  id             String              @id @default(uuid())
+  documentId     String
+  document       Document            @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  type           ProcessingJobType
+  status         ProcessingJobStatus @default(QUEUED)
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  durationMs     Int?
+  errorMessage   String?
+  output         Json                @default("{}")
+  createdAt      DateTime            @default(now())
+
+  @@index([documentId, type])
+}
+
+model ExtractedField {
+  id                String                  @id @default(uuid())
+  documentId        String
+  document          Document                @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  fieldDefinitionId String
+  fieldDefinition   DocumentFieldDefinition @relation(fields: [fieldDefinitionId], references: [id])
+  aiValue           String?
+  confidence        Decimal                 @db.Decimal(5, 4)
+  source            String
+  rawPayload        Json                    @default("{}")
+  createdAt         DateTime                @default(now())
+  validatedFields   ValidatedField[]
+
+  @@index([documentId])
+  @@index([fieldDefinitionId])
+}
+
+model ValidatedField {
+  id                String                  @id @default(uuid())
+  documentId        String
+  document          Document                @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  extractedFieldId  String?
+  extractedField    ExtractedField?         @relation(fields: [extractedFieldId], references: [id])
+  fieldDefinitionId String
+  fieldDefinition   DocumentFieldDefinition @relation(fields: [fieldDefinitionId], references: [id])
+  finalValue        String
+  correctedValue    String?
+  status            ValidationStatus        @default(PENDING)
+  validationRecordId String?
+  validationRecord  ValidationRecord?       @relation(fields: [validationRecordId], references: [id])
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@unique([documentId, fieldDefinitionId])
+}
+
+model ValidationRecord {
+  id             String             @id @default(uuid())
+  documentId     String
+  document       Document           @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  validatorId    String
+  validator      User               @relation(fields: [validatorId], references: [id])
+  status         ValidationStatus
+  notes          String?
+  fields         ValidatedField[]
+  createdAt      DateTime           @default(now())
+
+  @@index([documentId])
+}
+
+model Report {
+  id             String        @id @default(uuid())
+  organisationId String
+  organisation   Organisation  @relation(fields: [organisationId], references: [id])
+  documentId     String?
+  document       Document?      @relation(fields: [documentId], references: [id])
+  requestedById  String
+  requestedBy    User          @relation(fields: [requestedById], references: [id])
+  title          String
+  format         ReportFormat
+  storageKey     String?
+  criteria       Json          @default("{}")
+  durationMs     Int?
+  createdAt      DateTime      @default(now())
+
+  @@index([organisationId])
+}
+
+model Metric {
+  id             String   @id @default(uuid())
+  organisationId String?
+  name           String
+  value          Decimal  @db.Decimal(12, 4)
+  unit           String
+  dimensions     Json     @default("{}")
+  recordedAt     DateTime @default(now())
+
+  @@index([organisationId, name])
+}
+
+model AuditLog {
+  id             String        @id @default(uuid())
+  organisationId String?
+  organisation   Organisation? @relation(fields: [organisationId], references: [id])
+  userId         String?
+  user           User?         @relation(fields: [userId], references: [id])
+  documentId     String?
+  document       Document?     @relation(fields: [documentId], references: [id])
+  action         String
+  resource       String
+  resourceId     String?
+  ipAddress      String?
+  userAgent      String?
+  metadata       Json          @default("{}")
+  createdAt      DateTime      @default(now())
+
+  @@index([organisationId])
+  @@index([resource, resourceId])
+}
+
+model Setting {
+  id             String        @id @default(uuid())
+  organisationId String?
+  organisation   Organisation? @relation(fields: [organisationId], references: [id])
+  key            String
+  value          Json
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([organisationId, key])
+}
