@@ -3,6 +3,7 @@ import { DocumentStatus } from '@prisma/client';
 import { AuthenticatedUser } from '../../common/types';
 import { PrismaService } from '../../database/prisma.service';
 import { toJson } from '../../common/json';
+import { MulterFile } from '../../common/types/multer-file.type';
 import { FileStorageService } from '../file-storage/file-storage.service';
 import { MetricsService } from '../metrics/metrics.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
@@ -16,7 +17,7 @@ export class DocumentsService {
     private readonly metrics: MetricsService,
   ) {}
 
-  async upload(user: AuthenticatedUser, dto: CreateDocumentDto, file: Express.Multer.File) {
+  async upload(user: AuthenticatedUser, dto: CreateDocumentDto, file: MulterFile) {
     const started = Date.now();
     const documentType = await this.prisma.documentType.findUnique({ where: { id: dto.documentTypeId } });
     if (!documentType?.isActive) throw new BadRequestException('Invalid document type');
@@ -82,5 +83,20 @@ export class DocumentsService {
     });
     if (!document) throw new NotFoundException('Document not found');
     return document;
+  }
+
+  async getOriginalFile(organisationId: string, id: string) {
+    const document = await this.prisma.document.findFirst({
+      where: { id, organisationId, deletedAt: null },
+      include: { uploadedFile: true },
+    });
+    if (!document) throw new NotFoundException('Document not found');
+    if (!document.uploadedFile) throw new NotFoundException('Original file not found');
+
+    return {
+      buffer: await this.storage.read(document.uploadedFile.storageKey),
+      originalName: document.uploadedFile.originalName,
+      mimeType: document.uploadedFile.mimeType,
+    };
   }
 }

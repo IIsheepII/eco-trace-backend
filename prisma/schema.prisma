@@ -11,6 +11,7 @@ enum DocumentStatus {
   UPLOADED
   OCR_PENDING
   OCR_COMPLETED
+  OCR_FAILED
   EXTRACTION_PENDING
   EXTRACTION_COMPLETED
   VALIDATION_PENDING
@@ -153,6 +154,7 @@ model Document {
   metadata       Json               @default("{}")
   uploadedFile   UploadedFile?
   processingJobs ProcessingJob[]
+  ocrResults     OcrResult[]
   extractedFields ExtractedField[]
   validatedFields ValidatedField[]
   validationRecords ValidationRecord[]
@@ -194,9 +196,31 @@ model ProcessingJob {
   durationMs     Int?
   errorMessage   String?
   output         Json                @default("{}")
+  ocrResults     OcrResult[]
   createdAt      DateTime            @default(now())
 
   @@index([documentId, type])
+}
+
+model OcrResult {
+  id               String              @id @default(uuid())
+  documentId       String
+  document         Document            @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  processingJobId  String
+  processingJob    ProcessingJob       @relation(fields: [processingJobId], references: [id], onDelete: Cascade)
+  rawText          String
+  language         String
+  confidence       Decimal?            @db.Decimal(5, 4)
+  characterCount   Int
+  processingTimeMs Int
+  status           ProcessingJobStatus
+  errorMessage     String?
+  metadata         Json                @default("{}")
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([documentId])
+  @@index([processingJobId])
 }
 
 model ExtractedField {

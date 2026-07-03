@@ -1,9 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { extname, join } from 'node:path';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { extname, join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { MulterFile } from '../../common/types/multer-file.type';
 
 const ALLOWED_MIME_TYPES = new Set(['application/pdf', 'image/png', 'image/jpeg', 'image/tiff', 'image/webp']);
 
@@ -11,7 +12,7 @@ const ALLOWED_MIME_TYPES = new Set(['application/pdf', 'image/png', 'image/jpeg'
 export class FileStorageService {
   constructor(private readonly config: ConfigService) {}
 
-  async save(file: Express.Multer.File) {
+  async save(file: MulterFile) {
     this.validate(file);
     const uploadDir = this.config.get<string>('UPLOAD_DIR', './uploads');
     await mkdir(uploadDir, { recursive: true });
@@ -27,7 +28,24 @@ export class FileStorageService {
     };
   }
 
-  validate(file?: Express.Multer.File) {
+  async read(storageKey: string) {
+    return readFile(this.resolveStoragePath(storageKey));
+  }
+
+  async stat(storageKey: string) {
+    return stat(this.resolveStoragePath(storageKey));
+  }
+
+  resolveStoragePath(storageKey: string) {
+    const uploadDir = resolve(this.config.get<string>('UPLOAD_DIR', './uploads'));
+    const filePath = resolve(uploadDir, storageKey);
+    if (!filePath.startsWith(uploadDir)) {
+      throw new BadRequestException('Invalid storage key');
+    }
+    return filePath;
+  }
+
+  validate(file?: MulterFile) {
     if (!file) throw new BadRequestException('File is required');
     const maxBytes = this.config.get<number>('MAX_FILE_SIZE_MB', 20) * 1024 * 1024;
     if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {

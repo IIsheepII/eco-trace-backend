@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { MulterFile } from '../../common/types/multer-file.type';
 import { FileStorageService } from './file-storage.service';
 
 describe('FileStorageService', () => {
@@ -18,7 +19,7 @@ describe('FileStorageService', () => {
   });
 });
 
-function file(overrides: Partial<Express.Multer.File> = {}): Express.Multer.File {
+function file(overrides: Partial<MulterFile> = {}): MulterFile {
   return {
     fieldname: 'file',
     originalname: 'invoice.pdf',
