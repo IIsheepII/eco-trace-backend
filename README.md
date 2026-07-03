@@ -64,7 +64,9 @@ All endpoints are prefixed by `/api/v1`.
 | POST | `/documents/upload` | Upload PDF/image and create document |
 | GET | `/documents` | Search by title, type, metadata/extracted fields |
 | GET | `/documents/:id` | Read document aggregate |
-| POST | `/ocr/documents/:documentId/run` | Run OCR job |
+| POST | `/documents/:id/ocr/process` | Run OCR job and persist OCR result |
+| GET | `/documents/:id/ocr-result` | Read latest OCR result |
+| GET | `/documents/:id/processing-status` | Read latest OCR/AI processing status |
 | POST | `/ai-extraction/documents/:documentId/run` | Run extraction job |
 | POST | `/validation/documents/:documentId` | Human-validate extracted values |
 | GET | `/reports` | List reports |
@@ -116,9 +118,10 @@ The platform records:
 ## Testing
 
 ```bash
-pnpm test
-pnpm test:e2e
-pnpm test:cov
+corepack pnpm build
+corepack pnpm test
+corepack pnpm test:e2e
+corepack pnpm test:cov
 ```
 
 Coverage thresholds are configured at 80% globally and 90% for critical auth and validation modules.

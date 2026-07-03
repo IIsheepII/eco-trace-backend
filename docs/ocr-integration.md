@@ -4,7 +4,7 @@ This backend uses a local Tesseract CLI provider for OCR. It is intended for loc
 
 ## Dependencies
 
-Install Tesseract OCR on the host machine and make sure it is available in `PATH`.
+Install Tesseract OCR on the host machine. On Windows, prefer configuring `TESSERACT_PATH` instead of relying on the global `PATH`.
 
 Windows recommended installer:
 
@@ -14,8 +14,8 @@ Windows recommended installer:
 Verify:
 
 ```bash
-tesseract --version
-tesseract --list-langs
+& 'C:\Program Files\Tesseract-OCR\tesseract.exe' --version
+& 'C:\Program Files\Tesseract-OCR\tesseract.exe' --list-langs
 ```
 
 Expected languages for this project:
@@ -35,24 +35,25 @@ OCR_LANGUAGE=spa+eng
 OCR_ENGINE=tesseract
 OCR_MAX_FILE_SIZE_MB=10
 OCR_TEMP_DIR=./tmp/ocr
+TESSERACT_PATH=C:\Program Files\Tesseract-OCR\tesseract.exe
 ```
 
 `OCR_TEMP_DIR` is reserved for future PDF conversion or image preprocessing.
 
 ## Endpoints
 
-Existing compatibility endpoint:
-
-```http
-POST /api/v1/ocr/documents/:documentId/run
-```
-
-Document-scoped endpoints:
+Primary document-scoped endpoints:
 
 ```http
 POST /api/v1/documents/:id/ocr/process
 GET  /api/v1/documents/:id/ocr-result
 GET  /api/v1/documents/:id/processing-status
+```
+
+Legacy compatibility endpoint:
+
+```http
+POST /api/v1/ocr/documents/:documentId/run
 ```
 
 All endpoints require the existing HttpOnly cookie auth. OCR processing requires `documents:manage`.
