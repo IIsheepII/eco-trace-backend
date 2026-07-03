@@ -14,6 +14,7 @@ export interface EnvironmentVariables {
   OCR_MAX_FILE_SIZE_MB: number;
   OCR_TEMP_DIR: string;
   OCR_CLEAN_TEMP_FILES: boolean;
+  TESSERACT_PATH: string;
   POPPLER_PATH: string;
   PDF_CONVERSION_DPI: number;
   PDF_CONVERSION_FORMAT: string;
@@ -36,7 +37,7 @@ export function envValidation(config: Record<string, unknown>): EnvironmentVaria
     REFRESH_TOKEN_SECRET: String(config.REFRESH_TOKEN_SECRET),
     ACCESS_TOKEN_TTL: String(config.ACCESS_TOKEN_TTL ?? '15m'),
     REFRESH_TOKEN_TTL: String(config.REFRESH_TOKEN_TTL ?? '7d'),
-    CORS_ORIGIN: String(config.CORS_ORIGIN ?? 'http://localhost:3001'),
+    CORS_ORIGIN: String(config.CORS_ORIGIN ?? 'http://localhost:5174'),
     UPLOAD_DIR: String(config.UPLOAD_DIR ?? './uploads'),
     MAX_FILE_SIZE_MB: Number(config.MAX_FILE_SIZE_MB ?? 20),
     OCR_LANGUAGE: String(config.OCR_LANGUAGE ?? 'spa+eng'),
@@ -44,6 +45,7 @@ export function envValidation(config: Record<string, unknown>): EnvironmentVaria
     OCR_MAX_FILE_SIZE_MB: Number(config.OCR_MAX_FILE_SIZE_MB ?? 10),
     OCR_TEMP_DIR: String(config.OCR_TEMP_DIR ?? './tmp/ocr'),
     OCR_CLEAN_TEMP_FILES: String(config.OCR_CLEAN_TEMP_FILES ?? 'true') === 'true',
+    TESSERACT_PATH: String(config.TESSERACT_PATH ?? ''),
     POPPLER_PATH: String(config.POPPLER_PATH ?? ''),
     PDF_CONVERSION_DPI: Number(config.PDF_CONVERSION_DPI ?? 200),
     PDF_CONVERSION_FORMAT: String(config.PDF_CONVERSION_FORMAT ?? 'png'),

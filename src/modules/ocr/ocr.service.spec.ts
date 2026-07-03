@@ -122,4 +122,30 @@ describe('OcrService', () => {
     }));
     expect(prisma.document.update).toHaveBeenCalledWith({ where: { id: 'doc-1' }, data: { status: DocumentStatus.OCR_FAILED } });
   });
+
+  it('returns separate latest, OCR and AI extraction jobs in processing status', async () => {
+    const { service, prisma } = setup();
+    prisma.document.findFirst.mockResolvedValue({ id: 'doc-1', status: DocumentStatus.VALIDATION_PENDING });
+    prisma.processingJob.findFirst
+      .mockResolvedValueOnce({ id: 'ai-job', type: 'AI_EXTRACTION', status: ProcessingJobStatus.COMPLETED })
+      .mockResolvedValueOnce({ id: 'ocr-job', type: 'OCR', status: ProcessingJobStatus.COMPLETED })
+      .mockResolvedValueOnce({ id: 'ai-job', type: 'AI_EXTRACTION', status: ProcessingJobStatus.COMPLETED });
+    prisma.ocrResult.findFirst.mockResolvedValue({
+      id: 'ocr-1',
+      status: ProcessingJobStatus.COMPLETED,
+      language: 'spa+eng',
+      characterCount: 27,
+      processingTimeMs: 1200,
+      errorMessage: null,
+    });
+
+    await expect(service.getProcessingStatus('org-1', 'doc-1')).resolves.toMatchObject({
+      documentId: 'doc-1',
+      documentStatus: DocumentStatus.VALIDATION_PENDING,
+      latestJob: { id: 'ai-job' },
+      ocrJob: { id: 'ocr-job' },
+      aiExtractionJob: { id: 'ai-job' },
+      ocrResult: { id: 'ocr-1', characterCount: 27 },
+    });
+  });
 });

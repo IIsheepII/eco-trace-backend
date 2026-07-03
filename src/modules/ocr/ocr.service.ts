@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentStatus, ProcessingJobStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
@@ -38,15 +38,28 @@ export class OcrService {
       throw new NotFoundException('Original file not found');
     }
 
-    const job = await this.prisma.processingJob.create({
-      data: {
-        documentId,
-        type: 'OCR',
-        status: ProcessingJobStatus.RUNNING,
-        startedAt: new Date(started),
-        output: { language, engine: this.config.get<string>('OCR_ENGINE', 'tesseract') },
-      },
+    const existingQueuedJob = await this.prisma.processingJob.findFirst({
+      where: { documentId, type: 'OCR', status: ProcessingJobStatus.QUEUED },
+      orderBy: { createdAt: 'desc' },
     });
+    const job = existingQueuedJob
+      ? await this.prisma.processingJob.update({
+          where: { id: existingQueuedJob.id },
+          data: {
+            status: ProcessingJobStatus.RUNNING,
+            startedAt: new Date(started),
+            output: { language, engine: this.config.get<string>('OCR_ENGINE', 'tesseract') },
+          },
+        })
+      : await this.prisma.processingJob.create({
+          data: {
+            documentId,
+            type: 'OCR',
+            status: ProcessingJobStatus.RUNNING,
+            startedAt: new Date(started),
+            output: { language, engine: this.config.get<string>('OCR_ENGINE', 'tesseract') },
+          },
+        });
     await this.prisma.document.update({ where: { id: documentId }, data: { status: DocumentStatus.OCR_PENDING } });
 
     try {
@@ -99,15 +112,16 @@ export class OcrService {
       return { job: completedJob, ocrResult };
     } catch (error) {
       const durationMs = Date.now() - started;
-      const message = error instanceof Error ? error.message : 'OCR failed';
+      const internalMessage = error instanceof Error ? error.message : 'OCR failed';
+      const publicMessage = this.publicOcrErrorMessage(error);
       await this.prisma.processingJob.update({
         where: { id: job.id },
         data: {
           status: ProcessingJobStatus.FAILED,
           finishedAt: new Date(),
           durationMs,
-          errorMessage: message,
-          output: toJson({ language, error: message }),
+          errorMessage: publicMessage,
+          output: toJson({ language, error: publicMessage }),
         },
       });
       await this.prisma.ocrResult.create({
@@ -119,7 +133,7 @@ export class OcrService {
           characterCount: 0,
           processingTimeMs: durationMs,
           status: ProcessingJobStatus.FAILED,
-          errorMessage: message,
+          errorMessage: publicMessage,
           metadata: toJson({ engine: this.config.get<string>('OCR_ENGINE', 'tesseract') }),
         },
       });
@@ -134,8 +148,10 @@ export class OcrService {
           metadata: toJson({ processingJobId: job.id }),
         },
       });
-      this.logger.error(`OCR failed for document ${documentId}: ${message}`);
-      throw error;
+      this.logger.error(`OCR failed for document ${documentId}: ${internalMessage}`);
+      throw error instanceof BadRequestException || error instanceof NotFoundException
+        ? error
+        : new ServiceUnavailableException(publicMessage);
     }
   }
 
@@ -155,6 +171,14 @@ export class OcrService {
       where: { documentId },
       orderBy: { createdAt: 'desc' },
     });
+    const latestOcrJob = await this.prisma.processingJob.findFirst({
+      where: { documentId, type: 'OCR' },
+      orderBy: { createdAt: 'desc' },
+    });
+    const latestAiExtractionJob = await this.prisma.processingJob.findFirst({
+      where: { documentId, type: 'AI_EXTRACTION' },
+      orderBy: { createdAt: 'desc' },
+    });
     const latestOcrResult = await this.prisma.ocrResult.findFirst({
       where: { documentId },
       orderBy: { createdAt: 'desc' },
@@ -163,7 +187,9 @@ export class OcrService {
     return {
       documentId,
       documentStatus: document.status,
-      processingJob: latestJob,
+      latestJob,
+      ocrJob: latestOcrJob,
+      aiExtractionJob: latestAiExtractionJob,
       ocrResult: latestOcrResult
         ? {
             id: latestOcrResult.id,
@@ -204,6 +230,12 @@ export class OcrService {
         ocrTimeMs: Date.now() - started,
       },
     };
+  }
+
+  private publicOcrErrorMessage(error: unknown) {
+    if (error instanceof BadRequestException) return error.message;
+    if (error instanceof NotFoundException) return error.message;
+    return 'OCR processing failed. Verify that Tesseract and Poppler are installed and that the file can be processed.';
   }
 
   private async extractPdfText(filePath: string, language: string): Promise<OcrProviderResult> {
