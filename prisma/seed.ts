@@ -69,22 +69,45 @@ async function main() {
     },
   });
 
+  const manifestDocuments = await prisma.document.findMany({
+    where: { documentTypeId: manifestType.id },
+    select: { id: true },
+  });
+  const manifestDocumentIds = manifestDocuments.map((document) => document.id);
+
+  if (manifestDocumentIds.length > 0) {
+    await prisma.validatedField.deleteMany({ where: { documentId: { in: manifestDocumentIds } } });
+    await prisma.extractedField.deleteMany({ where: { documentId: { in: manifestDocumentIds } } });
+  }
+
+  await prisma.documentFieldDefinition.deleteMany({ where: { documentTypeId: manifestType.id } });
+
   await prisma.documentFieldDefinition.createMany({
     data: [
-      { documentTypeId: manifestType.id, name: 'manifest_year', label: 'Manifest Year', dataType: 'string', required: true, order: 1 },
-      { documentTypeId: manifestType.id, name: 'manifest_month', label: 'Manifest Month', dataType: 'string', required: true, order: 2 },
-      { documentTypeId: manifestType.id, name: 'generator_name', label: 'Generator Name', dataType: 'string', required: true, order: 3 },
-      { documentTypeId: manifestType.id, name: 'generator_ruc', label: 'Generator RUC', dataType: 'string', required: true, order: 4 },
-      { documentTypeId: manifestType.id, name: 'plant_name', label: 'Plant / Installation', dataType: 'string', required: false, order: 5 },
-      { documentTypeId: manifestType.id, name: 'waste_description', label: 'Waste Description', dataType: 'string', required: true, order: 6 },
-      { documentTypeId: manifestType.id, name: 'total_weight_kg', label: 'Total Weight (KG)', dataType: 'decimal', required: true, order: 7 },
-      { documentTypeId: manifestType.id, name: 'transporter_name', label: 'Transporter', dataType: 'string', required: true, order: 8 },
-      { documentTypeId: manifestType.id, name: 'transporter_ruc', label: 'Transporter RUC', dataType: 'string', required: true, order: 9 },
-      { documentTypeId: manifestType.id, name: 'vehicle_plate', label: 'Vehicle Plate', dataType: 'string', required: false, order: 10 },
-      { documentTypeId: manifestType.id, name: 'reception_date', label: 'Reception Date', dataType: 'date', required: false, order: 11 },
-      { documentTypeId: manifestType.id, name: 'destination_name', label: 'Destination EO-RS', dataType: 'string', required: true, order: 12 },
-      { documentTypeId: manifestType.id, name: 'destination_ruc', label: 'Destination RUC', dataType: 'string', required: true, order: 13 },
-      { documentTypeId: manifestType.id, name: 'received_weight_t', label: 'Received Weight (t)', dataType: 'decimal', required: false, order: 14 },
+      { documentTypeId: manifestType.id, name: 'manifest_year', label: 'Año', dataType: 'string', required: true, order: 1 },
+      { documentTypeId: manifestType.id, name: 'manifest_month', label: 'Mes', dataType: 'string', required: true, order: 2 },
+      { documentTypeId: manifestType.id, name: 'generator_razon_social', label: 'Razón social', dataType: 'string', required: true, order: 3 },
+      { documentTypeId: manifestType.id, name: 'generator_ruc', label: 'N° RUC', dataType: 'string', required: true, order: 4 },
+      { documentTypeId: manifestType.id, name: 'plant_denominacion', label: 'Denominación', dataType: 'string', required: true, order: 5 },
+      { documentTypeId: manifestType.id, name: 'waste_total_kg', label: 'Cantidad total (kg)', dataType: 'decimal', required: true, order: 6 },
+      { documentTypeId: manifestType.id, name: 'basel_a4', label: 'A-4', dataType: 'string', required: true, order: 7 },
+      { documentTypeId: manifestType.id, name: 'transporter_razon_social', label: 'Razón social', dataType: 'string', required: true, order: 8 },
+      { documentTypeId: manifestType.id, name: 'transporter_ruc', label: 'N° RUC', dataType: 'string', required: true, order: 9 },
+      { documentTypeId: manifestType.id, name: 'transporter_registro_eo_rs', label: 'Registro EO - RS', dataType: 'string', required: true, order: 10 },
+      { documentTypeId: manifestType.id, name: 'transporter_responsable_tecnico', label: 'Responsable técnico', dataType: 'string', required: true, order: 11 },
+      { documentTypeId: manifestType.id, name: 'transporter_colegiatura', label: 'N° de colegiatura', dataType: 'string', required: false, order: 12 },
+      { documentTypeId: manifestType.id, name: 'driver_name', label: 'Nombre del conductor', dataType: 'string', required: false, order: 13 },
+      { documentTypeId: manifestType.id, name: 'vehicle_plate', label: 'N° placa del vehículo', dataType: 'string', required: false, order: 14 },
+      { documentTypeId: manifestType.id, name: 'waste_reception_date', label: 'Fecha de recepción de los residuos', dataType: 'date', required: false, order: 15 },
+      { documentTypeId: manifestType.id, name: 'received_quantity_t', label: 'Cantidad de residuos recibidos (t)', dataType: 'decimal', required: false, order: 16 },
+      { documentTypeId: manifestType.id, name: 'destination_razon_social_siglas', label: 'Razón social y siglas', dataType: 'string', required: true, order: 17 },
+      { documentTypeId: manifestType.id, name: 'destination_ruc', label: 'N° RUC', dataType: 'string', required: true, order: 18 },
+      { documentTypeId: manifestType.id, name: 'destination_codigo_registro_eo_rs', label: 'Codigo de Registro EO - RS', dataType: 'string', required: true, order: 19 },
+      { documentTypeId: manifestType.id, name: 'destination_address', label: 'Dirección', dataType: 'string', required: true, order: 20 },
+      { documentTypeId: manifestType.id, name: 'destination_responsable_tecnico', label: 'Responsable técnico', dataType: 'string', required: true, order: 21 },
+      { documentTypeId: manifestType.id, name: 'destination_responsable_name', label: 'Nombres y apellidos del responsable de la EO - RS del destino final', dataType: 'string', required: false, order: 22 },
+      { documentTypeId: manifestType.id, name: 'destination_responsable_dni_ce', label: 'DNI / CE', dataType: 'string', required: false, order: 23 },
+      { documentTypeId: manifestType.id, name: 'destination_fecha_hora', label: 'Fecha y hora', dataType: 'string', required: false, order: 24 },
     ],
     skipDuplicates: true,
   });

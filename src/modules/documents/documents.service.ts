@@ -74,10 +74,10 @@ export class DocumentsService {
     const document = await this.prisma.document.findFirst({
       where: { id, organisationId, deletedAt: null },
       include: {
-        documentType: { include: { fieldDefinitions: true } },
+        documentType: { include: { fieldDefinitions: { orderBy: { order: 'asc' } } } },
         uploadedFile: true,
-        extractedFields: { include: { fieldDefinition: true } },
-        validatedFields: { include: { fieldDefinition: true } },
+        extractedFields: { include: { fieldDefinition: true }, orderBy: { fieldDefinition: { order: 'asc' } } },
+        validatedFields: { include: { fieldDefinition: true }, orderBy: { fieldDefinition: { order: 'asc' } } },
         processingJobs: true,
       },
     });

@@ -3,42 +3,59 @@ import { AiExtractionService } from './ai-extraction.service';
 
 describe('AiExtractionService', () => {
   const manifestFields = [
-    { id: 'field-year', name: 'manifest_year', label: 'Manifest Year', extractionHint: null },
-    { id: 'field-month', name: 'manifest_month', label: 'Manifest Month', extractionHint: null },
-    { id: 'field-generator', name: 'generator_name', label: 'Generator Name', extractionHint: null },
-    { id: 'field-ruc', name: 'generator_ruc', label: 'Generator RUC', extractionHint: null },
-    { id: 'field-plant', name: 'plant_name', label: 'Plant / Installation', extractionHint: null },
-    { id: 'field-waste', name: 'waste_description', label: 'Waste Description', extractionHint: null },
-    { id: 'field-weight', name: 'total_weight_kg', label: 'Total Weight (KG)', extractionHint: null },
-    { id: 'field-transporter', name: 'transporter_name', label: 'Transporter', extractionHint: null },
-    { id: 'field-transporter-ruc', name: 'transporter_ruc', label: 'Transporter RUC', extractionHint: null },
-    { id: 'field-plate', name: 'vehicle_plate', label: 'Vehicle Plate', extractionHint: null },
-    { id: 'field-date', name: 'reception_date', label: 'Reception Date', extractionHint: null },
-    { id: 'field-destination', name: 'destination_name', label: 'Destination EO-RS', extractionHint: null },
-    { id: 'field-destination-ruc', name: 'destination_ruc', label: 'Destination RUC', extractionHint: null },
-    { id: 'field-received', name: 'received_weight_t', label: 'Received Weight (t)', extractionHint: null },
+    { id: 'field-year', name: 'manifest_year', label: 'Anio', extractionHint: null },
+    { id: 'field-month', name: 'manifest_month', label: 'Mes', extractionHint: null },
+    { id: 'field-generator-name', name: 'generator_razon_social', label: 'Generador - Razon Social', extractionHint: null },
+    { id: 'field-generator-ruc', name: 'generator_ruc', label: 'Generador - N RUC', extractionHint: null },
+    { id: 'field-plant', name: 'plant_denominacion', label: 'Denominacion de la planta', extractionHint: null },
+    { id: 'field-total-kg', name: 'waste_total_kg', label: 'Cantidad total (kg)', extractionHint: null },
+    { id: 'field-a4', name: 'basel_a4', label: 'A-4', extractionHint: null },
+    { id: 'field-transporter-name', name: 'transporter_razon_social', label: 'Transportista - Razon Social', extractionHint: null },
+    { id: 'field-transporter-ruc', name: 'transporter_ruc', label: 'Transportista - N RUC', extractionHint: null },
+    { id: 'field-transporter-registry', name: 'transporter_registro_eo_rs', label: 'Transportista - Registro EO - RS', extractionHint: null },
+    { id: 'field-transporter-tech', name: 'transporter_responsable_tecnico', label: 'Transportista - Responsable tecnico', extractionHint: null },
+    { id: 'field-transporter-license', name: 'transporter_colegiatura', label: 'Transportista - N de colegiatura', extractionHint: null },
+    { id: 'field-driver', name: 'driver_name', label: 'Nombre del conductor', extractionHint: null },
+    { id: 'field-plate', name: 'vehicle_plate', label: 'N placa del vehiculo', extractionHint: null },
+    { id: 'field-reception-date', name: 'waste_reception_date', label: 'Fecha de recepcion de los residuos', extractionHint: null },
+    { id: 'field-received-t', name: 'received_quantity_t', label: 'Cantidad de residuos recibidos (t)', extractionHint: null },
+    { id: 'field-destination-name', name: 'destination_razon_social_siglas', label: 'Destino final - Razon social y siglas', extractionHint: null },
+    { id: 'field-destination-ruc', name: 'destination_ruc', label: 'Destino final - N RUC', extractionHint: null },
+    { id: 'field-destination-registry', name: 'destination_codigo_registro_eo_rs', label: 'Destino final - Codigo de Registro EO - RS', extractionHint: null },
+    { id: 'field-destination-address', name: 'destination_address', label: 'Destino final - Direccion', extractionHint: null },
+    { id: 'field-destination-tech', name: 'destination_responsable_tecnico', label: 'Destino final - Responsable tecnico', extractionHint: null },
+    { id: 'field-destination-responsible', name: 'destination_responsable_name', label: 'Responsable destino final', extractionHint: null },
+    { id: 'field-destination-dni', name: 'destination_responsable_dni_ce', label: 'Destino final responsable - DNI / CE', extractionHint: null },
+    { id: 'field-destination-date', name: 'destination_fecha_hora', label: 'Destino final - Fecha y hora', extractionHint: null },
   ];
 
   const manifestOcrText = `
 --- Page 1 ---
-AÑO 2026 mes MAYO
-Razón social UNIDAD EJECUTORA SALUD SUR AYACUCHO
-N° RUC | 20452222419
-Denominación de planta HOSPITAL DE APOYO DE PUQUIO FELIPE HUAMAN POMA DE AYALA Tipo de planta: ESTABLECIMIENTO DE SALUD
-Descripción del residuo RESIDUOS HOSPITALARIOS Cantidad total (KG) 312.00
-3.1. EO-RS DE RECOLECCIÓN Y TRANSPORTE
+ANO 2026 mes MAYO
+1. DATOS GENERALES DEL GENERADOR
+Razon social UNIDAD EJECUTORA SALUD SUR AYACUCHO N RUC | 20452222419
+Denominacion de planta HOSPITAL DE APOYO DE PUQUIO FELIPE HUAMAN POMA DE AYALA Tipo de planta: ESTABLECIMIENTO DE SALUD
+Descripcion del residuo RESIDUOS HOSPITALARIOS Cantidad total (KG) 259.20
+A-4 4020 Informacion adicional del residuo
+3.1. EO-RS DE RECOLECCION Y TRANSPORTE
 Racnaoca INVERSIONES Y MULTISERVICIOS AVKA S.A.C. 'N., RUC 20609186748
+EO-RS-00045-2025-MINAM/VMGA/DGGRS N 057-2024-MDC
+RE ON EDU ELIHUD HUAMANI PALOMINO Ne |7302432A
 
 --- Page 2 ---
-N° placa del vehículo Fecha de recepción de los residuos Cantidad de residuos recibidos (t)
-FURGON XP - 791 20 /05 /26 O. 27
+Nombre del conductor Freda Hamcille Came h ey. Tipo de vehiculo N placa del vehiculo Fecha de recepcion de los residuos Cantidad de residuos recibidos (t)
+FURGON CEM-84 (4 Jos [26 O: 2592
 3.2. EO-RS DEL DESTINO FINAL
-Razón social y siglas INNOVA AMBIENTAL S.A. N° RUC 20302891452
-Cantidad de residuos entregados / recepcionados (t)
-[0.270
+Razon social y siglas | INNOVA AMBIENTAL S.A. aTa 20302891452
+Codigo de Registro EO-RS Autorizacion o licencia de funcionamiento municipal Direccion EO-RS-00073-2020 RSG N°04/2019MDCH FUNDO PIEDRAS BLANCAS SECTOR SANTA ROSA ZONA QUEBRADA PARCA KM 18 DE CARRETERA SANTO DOMINGO OLLEROS ANTL. KM 62.5 Distrito Chilca
+aO ee ING. FERNANDO VARGAS OLIVERA N de colegiatura | 87851
+Cantidad de residuos entregados / recepcionados (t) O. 2542
+REFRENDO (Recepcion del residuo peligroso por la EO-RS del destino final)
+Nombres y apellidos del responsable de la EO-RS del destino final Fait Bustos Garo DNI - 25743592
+Fecha y hora 1 9 'MAY 7076
 `;
 
-  function setup() {
+  function setup(ocrText = manifestOcrText) {
     const createdFields: Array<{ fieldDefinitionId: string; aiValue: string | null }> = [];
     const prisma = {
       document: {
@@ -53,7 +70,7 @@ Cantidad de residuos entregados / recepcionados (t)
       ocrResult: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'ocr-1',
-          rawText: manifestOcrText,
+          rawText: ocrText,
           status: ProcessingJobStatus.COMPLETED,
         }),
       },
@@ -71,7 +88,7 @@ Cantidad de residuos entregados / recepcionados (t)
     return { service: new AiExtractionService(prisma as never), prisma, createdFields };
   }
 
-  it('extracts manifest fields from OCR text across pages', async () => {
+  it('extracts the company manifest schema from OCR text across pages', async () => {
     const { service, createdFields, prisma } = setup();
 
     await service.run('org-1', 'doc-1');
@@ -79,18 +96,107 @@ Cantidad de residuos entregados / recepcionados (t)
     const values = new Map(createdFields.map((field) => [field.fieldDefinitionId, field.aiValue]));
     expect(values.get('field-year')).toBe('2026');
     expect(values.get('field-month')).toBe('MAYO');
-    expect(values.get('field-generator')).toBe('UNIDAD EJECUTORA SALUD SUR AYACUCHO');
-    expect(values.get('field-ruc')).toBe('20452222419');
+    expect(values.get('field-generator-name')).toBe('UNIDAD EJECUTORA SALUD SUR AYACUCHO');
+    expect(values.get('field-generator-ruc')).toBe('20452222419');
     expect(values.get('field-plant')).toContain('HOSPITAL DE APOYO DE PUQUIO');
-    expect(values.get('field-waste')).toBe('RESIDUOS HOSPITALARIOS');
-    expect(values.get('field-weight')).toBe('312.00');
-    expect(values.get('field-transporter')).toBe('INVERSIONES Y MULTISERVICIOS AVKA S.A.C.');
+    expect(values.get('field-total-kg')).toBe('259.20');
+    expect(values.get('field-a4')).toBe('4020');
+    expect(values.get('field-transporter-name')).toBe('INVERSIONES Y MULTISERVICIOS AVKA S.A.C.');
     expect(values.get('field-transporter-ruc')).toBe('20609186748');
-    expect(values.get('field-plate')).toBe('XP-791');
-    expect(values.get('field-date')).toBe('20 /05 /26');
-    expect(values.get('field-destination')).toBe('INNOVA AMBIENTAL S.A.');
+    expect(values.get('field-transporter-registry')).toBe('EO-RS-00045-2025-MINAM/VMGA/DGGRS');
+    expect(values.get('field-transporter-tech')).toBe('EDU ELIHUD HUAMANI PALOMINO');
+    expect(values.get('field-transporter-license')).toBe('73024324');
+    expect(values.get('field-driver')).toBe('Freda Hamcille Came h ey.');
+    expect(values.get('field-plate')).toBe('CEM-841');
+    expect(values.get('field-reception-date')).toBe('14/05/26');
+    expect(values.get('field-received-t')).toBe('0.2592');
+    expect(values.get('field-destination-name')).toBe('INNOVA AMBIENTAL S.A.');
     expect(values.get('field-destination-ruc')).toBe('20302891452');
-    expect(values.get('field-received')).toBe('0.270');
+    expect(values.get('field-destination-registry')).toBe('EO-RS-00073-2020');
+    expect(values.get('field-destination-address')).toBe('FUNDO PIEDRAS BLANCAS SECTOR SANTA ROSA ZONA QUEBRADA PARCA KM 18 DE CARRETERA SANTO DOMINGO OLLEROS ANTL. KM 62.5');
+    expect(values.get('field-destination-tech')).toBe('FERNANDO VARGAS OLIVERA');
+    expect(values.get('field-destination-responsible')).toBe('Bustos Garo');
+    expect(values.get('field-destination-dni')).toBe('25743592');
+    expect(values.get('field-destination-date')).toBe("1 9 'MAY 2026");
     expect(prisma.document.update).toHaveBeenCalledWith({ where: { id: 'doc-1' }, data: { status: DocumentStatus.VALIDATION_PENDING } });
+  });
+
+  it('extracts destination address from the address cell without depending on a fixed place name', async () => {
+    const ocrText = manifestOcrText.replace(
+      'FUNDO PIEDRAS BLANCAS SECTOR SANTA ROSA ZONA QUEBRADA PARCA KM 18 DE CARRETERA SANTO DOMINGO OLLEROS ANTL. KM 62.5',
+      'PREDIO SAN JOSE PARCELA 12 CARRETERA CENTRAL KM 8.5',
+    );
+    const { service, createdFields } = setup(ocrText);
+
+    await service.run('org-1', 'doc-1');
+
+    const values = new Map(createdFields.map((field) => [field.fieldDefinitionId, field.aiValue]));
+    expect(values.get('field-destination-address')).toBe('PREDIO SAN JOSE PARCELA 12 CARRETERA CENTRAL KM 8.5');
+  });
+
+  it('extracts destination legal name from only its table cell', async () => {
+    const ocrText = manifestOcrText.replace(
+      'Razon social y siglas | INNOVA AMBIENTAL S.A. aTa 20302891452',
+      'Razon social y siglas INNOVA AMBIENTAL S.A. aTa 20302891452 Código de Registro EO-RS',
+    );
+    const { service, createdFields } = setup(ocrText);
+
+    await service.run('org-1', 'doc-1');
+
+    const values = new Map(createdFields.map((field) => [field.fieldDefinitionId, field.aiValue]));
+    expect(values.get('field-destination-name')).toBe('INNOVA AMBIENTAL S.A.');
+  });
+
+  it('extracts generator legal name from the first section table cell only', async () => {
+    const ocrText = manifestOcrText.replace(
+      'Razon social UNIDAD EJECUTORA SALUD SUR AYACUCHO N RUC | 20452222419',
+      'Razon social UNIDAD EJECUTORA SALUD SUR AYACUCHO 20452222419 Correo electronico efraimalvarol7@hotmail.com Telefono 988803160',
+    );
+    const { service, createdFields } = setup(ocrText);
+
+    await service.run('org-1', 'doc-1');
+
+    const values = new Map(createdFields.map((field) => [field.fieldDefinitionId, field.aiValue]));
+    expect(values.get('field-generator-name')).toBe('UNIDAD EJECUTORA SALUD SUR AYACUCHO');
+  });
+
+  it('leaves destination responsible name blank when the refendo stamp text is not a plausible person name', async () => {
+    const ocrText = manifestOcrText.replace(
+      'Nombres y apellidos del responsable de la EO-RS del destino final Fait Bustos Garo DNI - 25743592',
+      'Nombres y apellidos del responsable de la EO-RS del destino final INNOVA AMBIENTAL SA Inspector IDF CHILCA DNI - 25743592',
+    );
+    const { service, createdFields } = setup(ocrText);
+
+    await service.run('org-1', 'doc-1');
+
+    const values = new Map(createdFields.map((field) => [field.fieldDefinitionId, field.aiValue]));
+    expect(values.get('field-destination-responsible')).toBeNull();
+  });
+
+  it('extracts year and month from the top header even with OCR separators', async () => {
+    const ocrText = manifestOcrText.replace(
+      'ANO 2026 mes MAYO',
+      'MANIFIESTO DE MANEJO DE RESIDUOS SOLIDOS PELIGROSOS AÑO | 2026 MES | MAYO',
+    );
+    const { service, createdFields } = setup(ocrText);
+
+    await service.run('org-1', 'doc-1');
+
+    const values = new Map(createdFields.map((field) => [field.fieldDefinitionId, field.aiValue]));
+    expect(values.get('field-year')).toBe('2026');
+    expect(values.get('field-month')).toBe('MAYO');
+  });
+
+  it('extracts A-4 code from its table cell before additional information', async () => {
+    const ocrText = manifestOcrText.replace(
+      'A-4 4020 Informacion adicional del residuo',
+      'Sub Codigo segun el Convenio de Basilea A - 4 | 4020 Informacion adicional del residuo, de considerarlo',
+    );
+    const { service, createdFields } = setup(ocrText);
+
+    await service.run('org-1', 'doc-1');
+
+    const values = new Map(createdFields.map((field) => [field.fieldDefinitionId, field.aiValue]));
+    expect(values.get('field-a4')).toBe('4020');
   });
 });
