@@ -1,6 +1,8 @@
 export type OcrProviderInput = {
   filePath: string;
   language: string;
+  psm?: number;
+  profile?: string;
 };
 
 export type OcrProviderResult = {

@@ -20,7 +20,7 @@ describe('PdfProcessingService', () => {
       OCR_TEMP_DIR: 'D:/project/tmp/ocr',
       OCR_CLEAN_TEMP_FILES: true,
       POPPLER_PATH: '',
-      PDF_CONVERSION_DPI: 200,
+      PDF_CONVERSION_DPI: 300,
       PDF_CONVERSION_FORMAT: 'png',
       PDF_MAX_PAGES: 20,
       ...overrides,
@@ -53,9 +53,9 @@ describe('PdfProcessingService', () => {
     const result = await subject.convertPdfToImages('D:/uploads/invoice.pdf');
 
     expect(mkdtemp).toHaveBeenCalled();
-    expect(result).toMatchObject({ pageCount: 2, dpi: 200, imageFormat: 'png' });
+    expect(result).toMatchObject({ pageCount: 2, dpi: 300, imageFormat: 'png' });
     expect(result.imagePaths).toEqual([join('D:/project/tmp/ocr/pdf-abc', 'page-1.png'), join('D:/project/tmp/ocr/pdf-abc', 'page-2.png')]);
-    expect(execFileMock).toHaveBeenCalledWith('pdftoppm', ['-png', '-r', '200', 'D:/uploads/invoice.pdf', join('D:/project/tmp/ocr/pdf-abc', 'page')], expect.any(Object), expect.any(Function));
+    expect(execFileMock).toHaveBeenCalledWith('pdftoppm', ['-png', '-r', '300', 'D:/uploads/invoice.pdf', join('D:/project/tmp/ocr/pdf-abc', 'page')], expect.any(Object), expect.any(Function));
   });
 
   it('rejects PDFs over the configured page limit', async () => {

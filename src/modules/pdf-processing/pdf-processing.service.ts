@@ -36,7 +36,7 @@ export class PdfProcessingService {
     if (pageCount > maxPages) throw new BadRequestException(`PDF exceeds maximum page count of ${maxPages}`);
 
     const tempDir = await this.createTempDir();
-    const dpi = this.config.get<number>('PDF_CONVERSION_DPI', 200);
+    const dpi = this.config.get<number>('PDF_CONVERSION_DPI', 300);
     const imageFormat = this.normalizedImageFormat();
     const outputPrefix = join(tempDir, 'page');
     const args = [`-${imageFormat}`, '-r', String(dpi), pdfPath, outputPrefix];

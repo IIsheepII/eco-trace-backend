@@ -14,6 +14,9 @@ export interface EnvironmentVariables {
   OCR_MAX_FILE_SIZE_MB: number;
   OCR_TEMP_DIR: string;
   OCR_CLEAN_TEMP_FILES: boolean;
+  OCR_TESSERACT_PSM: number;
+  OCR_TESSERACT_EXTRA_PSMS: string;
+  OCR_TESSERACT_OEM: number;
   TESSERACT_PATH: string;
   POPPLER_PATH: string;
   PDF_CONVERSION_DPI: number;
@@ -45,9 +48,12 @@ export function envValidation(config: Record<string, unknown>): EnvironmentVaria
     OCR_MAX_FILE_SIZE_MB: Number(config.OCR_MAX_FILE_SIZE_MB ?? 10),
     OCR_TEMP_DIR: String(config.OCR_TEMP_DIR ?? './tmp/ocr'),
     OCR_CLEAN_TEMP_FILES: String(config.OCR_CLEAN_TEMP_FILES ?? 'true') === 'true',
+    OCR_TESSERACT_PSM: Number(config.OCR_TESSERACT_PSM ?? 6),
+    OCR_TESSERACT_EXTRA_PSMS: String(config.OCR_TESSERACT_EXTRA_PSMS ?? '11'),
+    OCR_TESSERACT_OEM: Number(config.OCR_TESSERACT_OEM ?? 1),
     TESSERACT_PATH: String(config.TESSERACT_PATH ?? ''),
     POPPLER_PATH: String(config.POPPLER_PATH ?? ''),
-    PDF_CONVERSION_DPI: Number(config.PDF_CONVERSION_DPI ?? 200),
+    PDF_CONVERSION_DPI: Number(config.PDF_CONVERSION_DPI ?? 300),
     PDF_CONVERSION_FORMAT: String(config.PDF_CONVERSION_FORMAT ?? 'png'),
     PDF_MAX_PAGES: Number(config.PDF_MAX_PAGES ?? 20),
   };

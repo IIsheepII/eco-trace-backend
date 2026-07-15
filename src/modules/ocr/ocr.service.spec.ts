@@ -39,6 +39,7 @@ describe('OcrService', () => {
           OCR_LANGUAGE: 'spa+eng',
           OCR_ENGINE: 'tesseract',
           OCR_MAX_FILE_SIZE_MB: 10,
+          OCR_TESSERACT_EXTRA_PSMS: '11',
         };
         return values[key] ?? fallback;
       }),
@@ -90,11 +91,19 @@ describe('OcrService', () => {
   it('converts PDF pages and runs OCR for each generated image', async () => {
     const { service, prisma, pdfProcessing, provider } = setup();
     prisma.document.findFirst.mockResolvedValue({ ...document, uploadedFile: { ...document.uploadedFile, mimeType: 'application/pdf' } });
+    provider.extractText = jest
+      .fn()
+      .mockResolvedValueOnce({ rawText: 'Page 1 primary', metadata: { psm: 6 } })
+      .mockResolvedValueOnce({ rawText: 'Page 1 sparse', metadata: { psm: 11 } })
+      .mockResolvedValueOnce({ rawText: 'Page 2 primary', metadata: { psm: 6 } })
+      .mockResolvedValueOnce({ rawText: 'Page 2 sparse', metadata: { psm: 11 } });
 
     await service.run('org-1', 'doc-1');
 
     expect(pdfProcessing.convertPdfToImages).toHaveBeenCalledWith('D:/uploads/file.png');
-    expect(provider.extractText).toHaveBeenCalledTimes(2);
+    expect(provider.extractText).toHaveBeenCalledTimes(4);
+    expect(provider.extractText).toHaveBeenCalledWith({ filePath: 'D:/tmp/page-1.png', language: 'spa+eng' });
+    expect(provider.extractText).toHaveBeenCalledWith({ filePath: 'D:/tmp/page-1.png', language: 'spa+eng', psm: 11, profile: 'pdf-enhanced-sparse-text' });
     expect(pdfProcessing.cleanupTempDir).toHaveBeenCalledWith('D:/tmp/pdf-1');
     expect(prisma.ocrResult.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({

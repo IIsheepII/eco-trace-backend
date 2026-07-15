@@ -248,11 +248,16 @@ export class OcrService {
       for (const [index, imagePath] of conversion.imagePaths.entries()) {
         const pageStarted = Date.now();
         const result = await this.ocrProvider.extractText({ filePath: imagePath, language });
+        const enhancedResults = await this.extractEnhancedPdfPageText(imagePath, language);
+        const pageText = this.mergeOcrText([result.rawText.trim(), ...enhancedResults.map((enhanced) => enhanced.rawText.trim())]);
         pages.push({
           page: index + 1,
-          text: result.rawText.trim(),
+          text: pageText,
           ocrTimeMs: Date.now() - pageStarted,
-          metadata: result.metadata ?? {},
+          metadata: {
+            primary: result.metadata ?? {},
+            enhanced: enhancedResults.map((enhanced) => enhanced.metadata ?? {}),
+          },
         });
       }
       tempFilesCleaned = await this.pdfProcessing.cleanupTempDir(conversion.tempDir);
@@ -281,6 +286,36 @@ export class OcrService {
       }
       throw error;
     }
+  }
+
+  private async extractEnhancedPdfPageText(filePath: string, language: string) {
+    const psms = this.config.get<string>('OCR_TESSERACT_EXTRA_PSMS', '11')
+      .split(',')
+      .map((value) => Number(value.trim()))
+      .filter((value) => Number.isInteger(value) && value > 0);
+    if (!psms.length) return [];
+
+    const results: OcrProviderResult[] = [];
+    for (const psm of psms) {
+      const result = await this.ocrProvider.extractText({ filePath, language, psm, profile: 'pdf-enhanced-sparse-text' });
+      if (result.rawText.trim()) results.push(result);
+    }
+    return results;
+  }
+
+  private mergeOcrText(parts: string[]) {
+    const seen = new Set<string>();
+    return parts
+      .flatMap((part) => part.split(/\n{2,}/))
+      .map((part) => part.trim())
+      .filter((part) => {
+        if (!part) return false;
+        const key = part.replace(/\s+/g, ' ').toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .join('\n');
   }
 
   private async ensureDocumentAccess(organisationId: string, documentId: string) {

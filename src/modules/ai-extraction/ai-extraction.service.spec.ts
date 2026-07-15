@@ -55,6 +55,51 @@ Nombres y apellidos del responsable de la EO-RS del destino final Fait Bustos Ga
 Fecha y hora 1 9 'MAY 7076
 `;
 
+  const manifestBOcrText = `
+MANIFIESTO DE MANEJO DE RESIDUOS SÓLIDOS PELIGROSOS AÑO 2026 MES ABRIL
+1. DATOS GENERALES DEL GENERADOR (Corresponde a ser llenado por el generador de residuos sólidos peligrosos)
+UNIDAD EJECUTORA 405 RED DE SALUD ANGARAES
+Representante legal ARANGO ARENALES HARRY ALBERTO DNI / CE 40600861
+1.1. DATOS DE LA PLANTA/INSTALACIÓN (Fuente de Generación)
+Denominación de planta HOSPITAL DE LIRCAY Tipo de planta: HOSPITAL
+2. DATOS DEL RESIDUO PELIGROSO MANEJADO
+Descripción del residuo RESIDUOS HOSPITALARIOS Cantidad total (KG) 2,349.30
+A4: Residuos que pueden contener constituyentes inorgánicos u orgánicos
+Sub Código según el Convenio de Basilea (Llenar de acuerdo al código de clasificación marcado)
+4020 - E - 3
+Información adicional del residuo, de considerarlo:
+3.1. EO-RS DE RECOLECCIÓN Y TRANSPORTE
+INVERSIONES Y MULTISERVICIOS AVKA S.A.C. N° RUC 20609186748
+Registro EO - RS Autorización o licencia de funcionamiento municipal Documento que autoriza la ruta
+EO-RS-00045-2025-MINAM/VMGA/DGGRS N° 057-2024-MDC N° 3089-2025-MTC/17.02
+Responsable técnico EDU ELIHUD HUAMANI PALOMINO N° de colegiatura 34089
+Nombre del conductor + C0 Hana l tu an art
+Tipo de vehiculo N° placa del vehiculo Fecha de recepción de los residuos Cantidad de residuos recibidos (t)
+COMBINE: SS eS
+Nombre del conductor Fredy Mancil la (a achert
+Cantidad de residuos recibidos (t)
+Tipo de vehículo
+N° placa del vehículo
+Fecha Ide recepción de los residuos
+FURGÓN
+27. 04.26
+2.3413
+CE ASYI
+REFRENDO (Entrega del residuo peligroso a la EO-RS de recolección y transporte)
+3.2. EO-RS DEL DESTINO FINAL
+Razón social y siglas INNOVA AMBIENTAL S.A. Ne RUC 20302891452
+Código de Regisiro EO-RS Autorización o licencia de funcionamiento municipal
+EO-RS-00073-2020 RSG N°04/2019MDCH FUNDO PIEDRAS BLANCAS SECTOR SANTA ROSA ZONA
+QUEBRADA PARCA (KM 18 DE CARRETERA SANTO
+DOMINGO OLLEROS ANTL. KM 62.5
+Representante legal MARCELO SOCOOWSKI AZEVEDO DNI / CE 005427570
+Responsable fécnico ING. FERNANDO VARGAS OLIVERA N° de colegiatura 87851
+REFRENDO (Recepción del residuo peligroso por la EO-RS del destino final)
+Nombres y apellidos del responsable de la EO-RS Ea all Oy 2775 SENTI
+destino final Disnrda Cáceres Barreto AI. NO Lo
+3.3. OTROS
+`;
+
   function setup(ocrText = manifestOcrText) {
     const createdFields: Array<{ fieldDefinitionId: string; aiValue: string | null }> = [];
     const prisma = {
@@ -198,5 +243,26 @@ Fecha y hora 1 9 'MAY 7076
 
     const values = new Map(createdFields.map((field) => [field.fieldDefinitionId, field.aiValue]));
     expect(values.get('field-a4')).toBe('4020');
+  });
+
+  it('keeps manifest-b section values stable when OCR omits labels or reads table headers imperfectly', async () => {
+    const { service, createdFields } = setup(manifestBOcrText);
+
+    await service.run('org-1', 'doc-1');
+
+    const values = new Map(createdFields.map((field) => [field.fieldDefinitionId, field.aiValue]));
+    expect(values.get('field-year')).toBe('2026');
+    expect(values.get('field-month')).toBe('ABRIL');
+    expect(values.get('field-generator-name')).toBe('UNIDAD EJECUTORA 405 RED DE SALUD ANGARAES');
+    expect(values.get('field-plant')).toBe('HOSPITAL DE LIRCAY');
+    expect(values.get('field-total-kg')).toBe('2,349.30');
+    expect(values.get('field-a4')).toBe('4020');
+    expect(values.get('field-transporter-license')).toBe('34089');
+    expect(values.get('field-driver')).toBe('Fredy Mancil la a achert');
+    expect(values.get('field-reception-date')).toBe('27/04/26');
+    expect(values.get('field-received-t')).toBe('2.3413');
+    expect(values.get('field-destination-name')).toBe('INNOVA AMBIENTAL S.A.');
+    expect(values.get('field-destination-ruc')).toBe('20302891452');
+    expect(values.get('field-destination-address')).toBe('FUNDO PIEDRAS BLANCAS SECTOR SANTA ROSA ZONA QUEBRADA PARCA (KM 18 DE CARRETERA SANTO DOMINGO OLLEROS ANTL. KM 62.5');
   });
 });

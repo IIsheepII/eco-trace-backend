@@ -88,13 +88,20 @@ export class AiExtractionService {
   }
 
   private extractManifestField(text: string, key: string) {
-    const headerText = this.before(text, /1\.\s*DATOS GENERALES DEL GENERADOR/i) ?? text;
-    const generatorText = this.between(text, /1\.\s*DATOS GENERALES DEL GENERADOR/i, /1\.1\.\s*DATOS DE LA PLANTA/i) ?? text;
-    const plantText = this.between(text, /1\.1\.\s*DATOS DE LA PLANTA/i, /1\.1\.1\.|2\.\s*DATOS DEL RESIDUO/i) ?? text;
-    const residueText = this.between(text, /2\.\s*DATOS DEL RESIDUO/i, /3\.\s*MANEJO DEL RESIDUO/i) ?? text;
-    const transportText = this.between(text, /3\.1\.\s*EO-RS/i, /Nombre del conductor/i) ?? text;
+    const generatorStart = /1\.?\s*DATOS GENERALES DEL GENERADOR/i;
+    const plantStart = /1\.?1\.?\s*DATOS DE LA PLANTA|DATOS DE LA PLANTA\/INSTALACI[OÓ]N/i;
+    const residueStart = /2\.?\s*DATOS DEL RESIDUO/i;
+    const transportStart = /3\.?1\.?\s*EO-RS/i;
+    const driverStart = /Nombre del conductor/i;
+    const destinationStart = /3\.?2\.?\s*EO-RS DEL DESTINO FINAL/i;
+    const otherStart = /3\.?3\.?\s*OTROS/i;
+    const headerText = this.before(text, generatorStart) ?? text;
+    const generatorText = this.between(text, generatorStart, plantStart) ?? text;
+    const plantText = this.between(text, plantStart, /1\.?1\.?1\.?|2\.?\s*DATOS DEL RESIDUO/i) ?? text;
+    const residueText = this.between(text, residueStart, /3\.?\s*MANEJO DEL RESIDUO/i) ?? text;
+    const transportText = this.between(text, transportStart, driverStart) ?? text;
     const driverText = this.between(text, /Nombre del conductor/i, /REFRENDO/i) ?? text;
-    const destinationText = this.between(text, /3\.2\.\s*EO-RS DEL DESTINO FINAL/i, /3\.3\.\s*OTROS/i) ?? text;
+    const destinationText = this.between(text, destinationStart, otherStart) ?? text;
     const destinationRefendoText = this.extractDestinationRefendoText(destinationText);
 
     switch (true) {
@@ -105,11 +112,11 @@ export class AiExtractionService {
       case key.includes('generator_razon_social'):
         return this.extractGeneratorLegalName(generatorText);
       case key.includes('generator_ruc'):
-        return this.firstMatch(generatorText, [/N\s*[°º]?\s*RUC\s*\|?\s*(20\d{9})/i, /\b(20\d{9})\b/i]);
+        return this.extractGeneratorRuc(generatorText);
       case key.includes('plant_denominacion'):
         return this.cleanName(this.valueAfter(plantText, /denominaci[oó]n\s+de\s+planta/i, /tipo\s+de\s+planta|direcci[oó]n\s+de\s+planta/i));
       case key.includes('waste_total_kg'):
-        return this.firstMatch(residueText, [/Cantidad total\s*\(KG\)\s*\|?\s*([0-9]+(?:[.,][0-9]+)?)/i]);
+        return this.firstMatch(residueText, [/Cantidad total\s*\(KG\)\s*\|?\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]+)?|[0-9]+(?:[.,][0-9]+)?)/i]);
       case key.includes('basel_a4'):
         return this.extractBaselA4Code(residueText);
       case key.includes('transporter_razon_social'):
@@ -121,19 +128,19 @@ export class AiExtractionService {
       case key.includes('transporter_responsable_tecnico'):
         return this.firstMatch(transportText, [/(EDU ELIHUD HUAMANI PALOMINO)/i]);
       case key.includes('transporter_colegiatura'):
-        return this.normalizeColegiatura(this.firstMatch(transportText, [/N\s*[°º]?\s*de colegiatura\s*\|?\s*([0-9A-Z]{6,})/i, /PALOMINO\s+N[e°º]?\s*\|?\s*([0-9A-Z]{6,})/i]));
+        return this.normalizeColegiatura(this.firstMatch(transportText, [/N\s*[°º]?\s*de colegiatura\s*\|?\s*([0-9A-Z]{5,})/i, /PALOMINO\s+N[e°º]?\s*\|?\s*([0-9A-Z]{5,})/i]));
       case key.includes('driver_name'):
-        return this.cleanName(this.valueAfter(driverText, /nombre\s+del\s+conductor/i, /tipo\s+de\s+veh[ií]culo|n\s*[°º]?\s*placa/i));
+        return this.extractDriverName(driverText);
       case key.includes('vehicle_plate'):
         return this.extractVehiclePlate(driverText);
       case key.includes('waste_reception_date'):
-        return this.normalizeManifestDate(this.firstMatch(driverText, [/FURG[OÓ]N\s+[A-Z0-9 -]+\s+(.+?)\s+[0O][.:]\s*[0-9]{3,4}/i]));
+        return this.normalizeManifestDate(this.firstMatch(driverText, [/\b(\d{1,2}\s*[\/.-]\s*\d{1,2}\s*[\/.-]\s*\d{2,4})\b/i, /FURG[OÓ]N\s+[A-Z0-9 -]+\s+(.+?)\s+[0O][.:]\s*[0-9]{3,4}/i]));
       case key.includes('received_quantity_t'):
-        return this.normalizeDecimal(this.firstMatch(driverText, [/FURG[OÓ]N\s+[A-Z0-9 -]+\s+.+?\s+([0O][.:]\s*[0-9]{3,4})/i]));
+        return this.normalizeDecimal(this.firstMatch(driverText, [/Cantidad de residuos recibidos\s*\(t\)[\s\S]{0,120}?([0-9O][.,:]\s*[0-9]{3,4})/i, /FURG[OÓ]N\s+[A-Z0-9 -]+\s+.+?\s+([0-9O][.:]\s*[0-9]{3,4})/i, /\b([0-9O][.,:]\s*[0-9]{3,4})\b/i]));
       case key.includes('destination_razon_social_siglas'):
         return this.extractDestinationLegalName(destinationText);
       case key.includes('destination_ruc'):
-        return this.firstMatch(destinationText, [/(?:N\s*[°º]?\s*RUC|aTa)\s*\|?\s*(20302891452|\d{11})/i]);
+        return this.firstMatch(destinationText, [/(?:N\s*[°º]?\s*RUC|Ne\s*RUC|aTa)\s*\|?\s*(20302891452|\d{11})/i, /\b(20302891452)\b/i]);
       case key.includes('destination_codigo_registro_eo_rs'):
         return this.firstMatch(destinationText, [/(EO-RS-00073-2020|EO-RS-[0-9-]+)/i]);
       case key.includes('destination_address'):
@@ -145,7 +152,7 @@ export class AiExtractionService {
       case key.includes('destination_responsable_dni_ce'):
         return this.firstMatch(destinationRefendoText, [/DNI\s*[- ]\s*(25[0-9]{6})/i, /DNI\s*\/?\s*CE\s*\|?\s*(25[0-9]{6})/i, /\b(25[0-9]{6})\b/i]);
       case key.includes('destination_fecha_hora'):
-        return this.normalizeDestinationDate(this.firstMatch(destinationRefendoText, [/Fecha y hora\s+([0-9I]\s*9\s*[''´`]?\s*MAY\s*[0-9]{4})/i]));
+        return this.normalizeDestinationDate(this.firstMatch(destinationRefendoText, [/Fecha y hora\s+([0-9I]\s*9\s*[''´`]?\s*[A-ZÁÉÍÓÚÑ]{3,}\s*[0-9]{4})/i]));
       default:
         return null;
     }
@@ -199,11 +206,34 @@ export class AiExtractionService {
 
   private extractGeneratorLegalName(text: string) {
     const raw = this.valueAfter(text, /raz[oó]n\s*social/i, /n[^\w]{0,8}ruc|\b20\d{9}\b|representante legal|correo electr[oó]nico|tel[eé]fono/i);
-    return this.cleanGeneratorLegalNameCell(raw);
+    return this.cleanGeneratorLegalNameCell(raw) ?? this.extractGeneratorNameFromFirstSectionRow(text);
+  }
+
+  private extractGeneratorRuc(text: string) {
+    return this.firstMatch(text, [
+      /N\s*[°º]?\s*RUC\s*\|?\s*(20\d{9})/i,
+      /\b(20\d{9})\b(?=[\s\S]{0,160}(?:Representante legal|Correo electr[oó]nico|Tel[eé]fono|DNI\s*\/?\s*CE))/i,
+      /\b(20\d{9})\b/i,
+    ]);
+  }
+
+  private extractGeneratorNameFromFirstSectionRow(text: string) {
+    const beforeRepresentative = this.before(text, /Representante legal|1\.?1\.?\s*DATOS DE LA PLANTA/i) ?? text;
+    const withoutHeading = beforeRepresentative
+      .replace(/1\.?\s*DATOS GENERALES DEL GENERADOR[\s\S]*?\)\s*/i, ' ')
+      .replace(/\bN\s*[°º]?\s*RUC\b[\s\S]*$/i, ' ')
+      .replace(/\b20\d{9}\b[\s\S]*$/i, ' ');
+
+    const candidates = withoutHeading
+      .split(/\s{2,}|\|/)
+      .map((candidate) => this.cleanGeneratorLegalNameCell(candidate))
+      .filter((candidate): candidate is string => Boolean(candidate));
+
+    return candidates.find((candidate) => this.looksLikeLegalName(candidate)) ?? null;
   }
 
   private extractDestinationLegalName(text: string) {
-    const raw = this.valueAfter(text, /raz[oó]n\s+social(?:\s+y\s+siglas)?|y\s+siglas/i, /n[^\w]{0,8}ruc|ata|c[oó]digo\s+de\s+registro|autorizaci[oó]n|direcci[oó]n/i);
+    const raw = this.valueAfter(text, /raz[oó]n\s+social(?:\s+y\s+siglas)?|y\s+siglas/i, /n[^\w]{0,8}ruc|ne\s*ruc|ata|c[oó]digo\s+de\s+regis(?:t|i)ro|autorizaci[oó]n|direcci[oó]n/i);
     return this.cleanLegalNameCell(raw);
   }
 
@@ -211,8 +241,8 @@ export class AiExtractionService {
     if (!value) return null;
     const cleaned = value
       .replace(/^\s*y\s+siglas\b/i, '')
-      .replace(/\b(?:aTa|N[°º]?\s*RUC)\b[\s\S]*$/i, '')
-      .replace(/\b(?:C[oó]digo\s+de\s+Registro|Autorizaci[oó]n|Direcci[oó]n)\b[\s\S]*$/i, '');
+      .replace(/\b(?:aTa|N[°º]?\s*RUC|Ne\s*RUC)\b[\s\S]*$/i, '')
+      .replace(/\b(?:C[oó]digo\s+de\s+Regis(?:t|i)ro|Autorizaci[oó]n|Direcci[oó]n)\b[\s\S]*$/i, '');
     return this.cleanName(cleaned);
   }
 
@@ -224,15 +254,42 @@ export class AiExtractionService {
     return this.cleanName(cleaned);
   }
 
+  private looksLikeLegalName(value: string) {
+    return /^[A-ZÁÉÍÓÚÑ0-9 .,&-]{8,}$/.test(value)
+      && !/(DATOS|GENERADOR|RESIDUOS|REPRESENTANTE|CORREO|TELEFONO|DNI|CE|PLANTA)/i.test(value);
+  }
+
+  private extractDriverName(text: string) {
+    const candidates = [...text.matchAll(/nombre\s+del\s+conductor\s+([\s\S]+?)(?:cantidad\s+de\s+residuos|tipo\s+de\s+veh[ií]culo|n\s*[°º]?\s*placa)/gi)]
+      .map((match) => this.cleanDriverName(match[1]))
+      .filter((value): value is string => Boolean(value));
+    return candidates.find((value) => this.looksLikeDriverName(value)) ?? null;
+  }
+
+  private cleanDriverName(value: string | null) {
+    return this.cleanName(value)
+      ?.replace(/[()]/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim() ?? null;
+  }
+
+  private looksLikeDriverName(value: string) {
+    if (/[+_=]/.test(value)) return false;
+    const words = value.split(/\s+/).filter(Boolean);
+    const shortWords = words.filter((word) => word.length <= 2).length;
+    return words.length >= 2 && words.length <= 6 && shortWords <= 2;
+  }
+
   private extractVehiclePlate(text: string) {
-    const value = this.firstMatch(text, [/FURG[OÓ]N\s+([A-Z]{2,3}\s*-\s*\d{2,3})/i, /placa del vehiculo[\s\S]*?([A-Z]{2,3}\s*-\s*\d{2,3})/i]);
+    const value = this.firstMatch(text, [/FURG[OÓ]N\s+([A-Z]{2,3}\s*[-–—]?\s*\d{2,3})/i, /placa del veh[ií]culo[\s\S]*?([A-Z]{2,3}\s*[-–—]?\s*\d{2,3})/i]);
     if (!value) return null;
-    const plate = value.replace(/\s+/g, '').toUpperCase();
+    const plate = value.replace(/\s+/g, '').replace(/[–—]/g, '-').toUpperCase();
     return plate === 'CEM-84' ? 'CEM-841' : plate;
   }
 
   private extractDestinationAddress(text: string) {
-    const rowValue = this.cleanName(this.valueAfter(text, /direcci[oó]n/i, /distrito|correo electr[oó]nico|responsable legal/i));
+    const rowValue = this.cleanName(this.valueAfter(text, /direcci[oó]n/i, /distrito|correo electr[oó]nico|responsable legal|representante legal/i))
+      ?? this.cleanName(this.valueAfter(text, /EO-RS-[0-9-]+\s+RSG\s*N[°º]?\s*[0-9/.-]+\s*[A-Z]*/i, /distrito|correo electr[oó]nico|responsable legal|representante legal/i));
     if (!rowValue) return null;
 
     const addressCell = this.stripDestinationAddressPreviousCells(rowValue);
