@@ -215,7 +215,7 @@ export class OcrService {
 
   private async extractTextFromStoredFile(filePath: string, mimeType: string, language: string): Promise<OcrProviderResult> {
     if (this.pdfProcessing.isPdf(mimeType, filePath)) {
-      return this.extractPdfText(filePath, language);
+      return this.extractPdfDocument(filePath, language);
     }
 
     const started = Date.now();
@@ -232,13 +232,40 @@ export class OcrService {
     };
   }
 
+  private async extractPdfDocument(filePath: string, language: string): Promise<OcrProviderResult> {
+    const engine = this.config.get<string>('OCR_ENGINE', 'tesseract').toLowerCase();
+    if (engine === 'tesseract') return this.extractPdfWithTesseract(filePath, language);
+    if (engine !== 'google-vision' || !this.ocrProvider.extractDocument) {
+      throw new ServiceUnavailableException(`OCR engine ${engine} cannot process PDF documents`);
+    }
+
+    try {
+      return await this.ocrProvider.extractDocument({ filePath, mimeType: 'application/pdf', language });
+    } catch (error) {
+      const fallback = this.config.get<string>('OCR_FALLBACK_ENGINE', 'tesseract').toLowerCase();
+      if (fallback !== 'tesseract') throw error;
+
+      const detail = error instanceof Error ? error.message : 'Google Vision PDF OCR failed';
+      this.logger.warn(`Direct Google Vision PDF processing failed; using Poppler and Tesseract: ${detail}`);
+      const result = await this.extractPdfWithTesseract(filePath, language);
+      return {
+        ...result,
+        metadata: {
+          ...(result.metadata ?? {}),
+          fallbackFrom: 'google-vision',
+          primaryFailure: 'GOOGLE_VISION_DOCUMENT_FAILED',
+        },
+      };
+    }
+  }
+
   private publicOcrErrorMessage(error: unknown) {
     if (error instanceof BadRequestException) return error.message;
     if (error instanceof NotFoundException) return error.message;
-    return 'OCR processing failed. Verify that Tesseract and Poppler are installed and that the file can be processed.';
+    return 'El procesamiento OCR falló. Verifica la configuración del proveedor OCR, Poppler y el archivo procesado.';
   }
 
-  private async extractPdfText(filePath: string, language: string): Promise<OcrProviderResult> {
+  private async extractPdfWithTesseract(filePath: string, language: string): Promise<OcrProviderResult> {
     let conversion: PdfConversionResult | undefined;
     const ocrStarted = Date.now();
     let tempFilesCleaned = false;
@@ -247,7 +274,7 @@ export class OcrService {
       const pages = [];
       for (const [index, imagePath] of conversion.imagePaths.entries()) {
         const pageStarted = Date.now();
-        const result = await this.ocrProvider.extractText({ filePath: imagePath, language });
+        const result = await this.ocrProvider.extractText({ filePath: imagePath, language, engine: 'tesseract' });
         const enhancedResults = await this.extractEnhancedPdfPageText(imagePath, language);
         const pageText = this.mergeOcrText([result.rawText.trim(), ...enhancedResults.map((enhanced) => enhanced.rawText.trim())]);
         pages.push({
@@ -297,7 +324,13 @@ export class OcrService {
 
     const results: OcrProviderResult[] = [];
     for (const psm of psms) {
-      const result = await this.ocrProvider.extractText({ filePath, language, psm, profile: 'pdf-enhanced-sparse-text' });
+      const result = await this.ocrProvider.extractText({
+        filePath,
+        language,
+        engine: 'tesseract',
+        psm,
+        profile: 'pdf-enhanced-sparse-text',
+      });
       if (result.rawText.trim()) results.push(result);
     }
     return results;

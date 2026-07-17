@@ -14,7 +14,7 @@ describe('OcrService', () => {
     },
   };
 
-  function setup(providerOverrides: Partial<OcrProvider> = {}) {
+  function setup(providerOverrides: Partial<OcrProvider> = {}, configOverrides: Record<string, unknown> = {}) {
     const prisma = {
       document: {
         findFirst: jest.fn().mockResolvedValue(document),
@@ -40,6 +40,8 @@ describe('OcrService', () => {
           OCR_ENGINE: 'tesseract',
           OCR_MAX_FILE_SIZE_MB: 10,
           OCR_TESSERACT_EXTRA_PSMS: '11',
+          OCR_FALLBACK_ENGINE: 'tesseract',
+          ...configOverrides,
         };
         return values[key] ?? fallback;
       }),
@@ -102,8 +104,14 @@ describe('OcrService', () => {
 
     expect(pdfProcessing.convertPdfToImages).toHaveBeenCalledWith('D:/uploads/file.png');
     expect(provider.extractText).toHaveBeenCalledTimes(4);
-    expect(provider.extractText).toHaveBeenCalledWith({ filePath: 'D:/tmp/page-1.png', language: 'spa+eng' });
-    expect(provider.extractText).toHaveBeenCalledWith({ filePath: 'D:/tmp/page-1.png', language: 'spa+eng', psm: 11, profile: 'pdf-enhanced-sparse-text' });
+    expect(provider.extractText).toHaveBeenCalledWith({ filePath: 'D:/tmp/page-1.png', language: 'spa+eng', engine: 'tesseract' });
+    expect(provider.extractText).toHaveBeenCalledWith({
+      filePath: 'D:/tmp/page-1.png',
+      language: 'spa+eng',
+      engine: 'tesseract',
+      psm: 11,
+      profile: 'pdf-enhanced-sparse-text',
+    });
     expect(pdfProcessing.cleanupTempDir).toHaveBeenCalledWith('D:/tmp/pdf-1');
     expect(prisma.ocrResult.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
@@ -111,6 +119,48 @@ describe('OcrService', () => {
         metadata: expect.objectContaining({ sourceType: 'pdf', pagesConverted: 2, tempFilesCleaned: true }),
       }),
     }));
+  });
+
+  it('sends the original PDF to Google Vision without invoking Poppler', async () => {
+    const extractDocument = jest.fn().mockResolvedValue({
+      rawText: '--- Page 1 ---\nManifest page one\n\n--- Page 2 ---\nManifest page two',
+      metadata: { engine: 'google-cloud-vision', inputMode: 'direct-pdf', pageCount: 2 },
+    });
+    const { service, prisma, pdfProcessing } = setup({ extractDocument }, { OCR_ENGINE: 'google-vision' });
+    prisma.document.findFirst.mockResolvedValue({
+      ...document,
+      uploadedFile: { ...document.uploadedFile, mimeType: 'application/pdf' },
+    });
+
+    await service.run('org-1', 'doc-1');
+
+    expect(extractDocument).toHaveBeenCalledWith({
+      filePath: 'D:/uploads/file.png',
+      mimeType: 'application/pdf',
+      language: 'spa+eng',
+    });
+    expect(pdfProcessing.convertPdfToImages).not.toHaveBeenCalled();
+  });
+
+  it('invokes Poppler and Tesseract only after direct Google PDF processing fails', async () => {
+    const extractDocument = jest.fn().mockRejectedValue(new ServiceUnavailableException('Vision timeout'));
+    const extractText = jest.fn().mockResolvedValue({ rawText: 'Tesseract fallback', metadata: { engine: 'tesseract-cli' } });
+    const { service, prisma, pdfProcessing } = setup(
+      { extractDocument, extractText },
+      { OCR_ENGINE: 'google-vision', OCR_TESSERACT_EXTRA_PSMS: '' },
+    );
+    prisma.document.findFirst.mockResolvedValue({
+      ...document,
+      uploadedFile: { ...document.uploadedFile, mimeType: 'application/pdf' },
+    });
+
+    const result = await service.run('org-1', 'doc-1');
+
+    expect(pdfProcessing.convertPdfToImages).toHaveBeenCalledTimes(1);
+    expect(extractText).toHaveBeenCalledWith(expect.objectContaining({ engine: 'tesseract' }));
+    expect(result.ocrResult.metadata).toEqual(
+      expect.objectContaining({ fallbackFrom: 'google-vision', primaryFailure: 'GOOGLE_VISION_DOCUMENT_FAILED' }),
+    );
   });
 
   it('returns not found when the document does not exist', async () => {

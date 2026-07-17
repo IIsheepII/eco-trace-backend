@@ -11,6 +11,7 @@ export interface EnvironmentVariables {
   MAX_FILE_SIZE_MB: number;
   OCR_LANGUAGE: string;
   OCR_ENGINE: string;
+  OCR_FALLBACK_ENGINE: string;
   OCR_MAX_FILE_SIZE_MB: number;
   OCR_TEMP_DIR: string;
   OCR_CLEAN_TEMP_FILES: boolean;
@@ -22,6 +23,9 @@ export interface EnvironmentVariables {
   PDF_CONVERSION_DPI: number;
   PDF_CONVERSION_FORMAT: string;
   PDF_MAX_PAGES: number;
+  GOOGLE_CLOUD_PROJECT: string;
+  GOOGLE_CLOUD_VISION_BUCKET: string;
+  GOOGLE_CLOUD_VISION_TIMEOUT_MS: number;
 }
 
 export function envValidation(config: Record<string, unknown>): EnvironmentVariables {
@@ -30,6 +34,16 @@ export function envValidation(config: Record<string, unknown>): EnvironmentVaria
     if (!config[key]) {
       throw new Error(`Missing required environment variable ${key}`);
     }
+  }
+
+  const ocrEngine = String(config.OCR_ENGINE ?? 'tesseract').toLowerCase();
+  const ocrFallbackEngine = String(config.OCR_FALLBACK_ENGINE ?? 'tesseract').toLowerCase();
+  const supportedOcrEngines = new Set(['tesseract', 'google-vision', 'none']);
+  if (!supportedOcrEngines.has(ocrEngine) || !supportedOcrEngines.has(ocrFallbackEngine)) {
+    throw new Error('OCR_ENGINE and OCR_FALLBACK_ENGINE must be tesseract, google-vision or none');
+  }
+  if (ocrEngine === 'google-vision' && !config.GOOGLE_CLOUD_PROJECT) {
+    throw new Error('Missing required environment variable GOOGLE_CLOUD_PROJECT for Google Vision OCR');
   }
 
   return {
@@ -44,7 +58,8 @@ export function envValidation(config: Record<string, unknown>): EnvironmentVaria
     UPLOAD_DIR: String(config.UPLOAD_DIR ?? './uploads'),
     MAX_FILE_SIZE_MB: Number(config.MAX_FILE_SIZE_MB ?? 20),
     OCR_LANGUAGE: String(config.OCR_LANGUAGE ?? 'spa+eng'),
-    OCR_ENGINE: String(config.OCR_ENGINE ?? 'tesseract'),
+    OCR_ENGINE: ocrEngine,
+    OCR_FALLBACK_ENGINE: ocrFallbackEngine,
     OCR_MAX_FILE_SIZE_MB: Number(config.OCR_MAX_FILE_SIZE_MB ?? 10),
     OCR_TEMP_DIR: String(config.OCR_TEMP_DIR ?? './tmp/ocr'),
     OCR_CLEAN_TEMP_FILES: String(config.OCR_CLEAN_TEMP_FILES ?? 'true') === 'true',
@@ -56,5 +71,8 @@ export function envValidation(config: Record<string, unknown>): EnvironmentVaria
     PDF_CONVERSION_DPI: Number(config.PDF_CONVERSION_DPI ?? 300),
     PDF_CONVERSION_FORMAT: String(config.PDF_CONVERSION_FORMAT ?? 'png'),
     PDF_MAX_PAGES: Number(config.PDF_MAX_PAGES ?? 20),
+    GOOGLE_CLOUD_PROJECT: String(config.GOOGLE_CLOUD_PROJECT ?? ''),
+    GOOGLE_CLOUD_VISION_BUCKET: String(config.GOOGLE_CLOUD_VISION_BUCKET ?? ''),
+    GOOGLE_CLOUD_VISION_TIMEOUT_MS: Number(config.GOOGLE_CLOUD_VISION_TIMEOUT_MS ?? 30_000),
   };
 }
